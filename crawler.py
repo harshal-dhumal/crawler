@@ -5,7 +5,7 @@ from requests.utils import urlparse, urlunparse
 from requests.compat import urljoin
 import requests
 
-logging.basicConfig(filename='error.log')
+logging.basicConfig(filename='error.log', filemode='w')
 
 
 class Crawler(object):
