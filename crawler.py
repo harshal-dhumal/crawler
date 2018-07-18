@@ -210,7 +210,7 @@ class Crawler(object):
         if url.path.endswith(self.FILE_CONTENTS):
             return None
 
-        if not self.is_valid_url(url):
+        if self.is_external_url(url):
             return None
 
         l_url = list(url)
@@ -230,7 +230,7 @@ class Crawler(object):
 
         return url
 
-    def is_valid_url(self, url):
+    def is_external_url(self, url):
         """
         Check is url belongs to same domain
         :param url:
@@ -240,11 +240,9 @@ class Crawler(object):
             url = urlparse(url)
 
         if self.rooturl.netloc == url.netloc:
-            return True
-        return False
+            return False
+        return True
 
-    def make_report(self):
-        pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Sitemap crawler')
