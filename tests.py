@@ -22,14 +22,20 @@ class PrepareRootUrlTest(unittest.TestCase):
         # first url is current page url
         # second url is crawled url in current page
         # third url is absolute url which is expected result
-        self.urls = [('https://example.com/', '/about', 'https://example.com/about'),
-                     ('https://example.com/', 'about/first', 'https://example.com/about/first'),
-                     ('https://example.com/about/', '../first', 'https://example.com/first'),
-                     ('https://example.com/about/', './first', 'https://example.com/about/first'),
-                     ('https://example.com/about/', 'https://anotherexample.com', None),
-                     ('https://example.com/about/', '/download/example.pdf', None),
-                     ('https://example.com/', '/about?sort=1', 'https://example.com/about'),
-                     ('https://example.com/', '/about?sort=1#linkicon', 'https://example.com/about')]
+        self.urls = [
+            ('https://example.com/', '/about', 'https://example.com/about'),
+            ('https://example.com/', 'about/first',
+             'https://example.com/about/first'),
+            ('https://example.com/about/', '../first',
+             'https://example.com/first'),
+            ('https://example.com/about/', './first',
+             'https://example.com/about/first'),
+            ('https://example.com/about/', 'https://anotherexample.com', None),
+            ('https://example.com/about/', '/download/example.pdf', None),
+            ('https://example.com/', '/about?sort=1',
+             'https://example.com/about'),
+            ('https://example.com/', '/about?sort=1#linkicon',
+             'https://example.com/about')]
 
     def test_prepare_url(self):
         for current_url, url, expected_url in self.urls:
@@ -45,12 +51,19 @@ class PrepareRootUrlWithQueryTest(unittest.TestCase):
         # second url is crawled url in current page
         # third url is absolute url which is expected result
 
-        self.urls = [('https://example.com/about/', 'https://anotherexample.com?sort=1', None),
-                     ('https://example.com/about/', '/download/example.pdf?sort=1', None),
-                     ('https://example.com/', '/about?sort=1', 'https://example.com/about?sort=1'),
-                     ('https://example.com/', '/about?sort=1#linkicon', 'https://example.com/about?sort=1'),
-                     ('https://example.com/first/', '../about?sort=1', 'https://example.com/about?sort=1'),
-                     ('https://example.com/first/', '../about?sort=1#linkicon', 'https://example.com/about?sort=1')]
+        self.urls = [
+            ('https://example.com/about/', 'https://anotherexample.com?sort=1',
+             None),
+            ('https://example.com/about/', '/download/example.pdf?sort=1',
+             None),
+            ('https://example.com/', '/about?sort=1',
+             'https://example.com/about?sort=1'),
+            ('https://example.com/', '/about?sort=1#linkicon',
+             'https://example.com/about?sort=1'),
+            ('https://example.com/first/', '../about?sort=1',
+             'https://example.com/about?sort=1'),
+            ('https://example.com/first/', '../about?sort=1#linkicon',
+             'https://example.com/about?sort=1')]
 
     def test_prepare_url(self):
         for current_url, url, expected_url in self.urls:
@@ -67,12 +80,18 @@ class PrepareRootUrlWithfragmentTest(unittest.TestCase):
         # third url is absolute url which is expected result
 
         self.urls = [
-            ('https://example.com/about/', 'https://anotherexample.com?sort=1#linkicon', None),
-            ('https://example.com/about/', '/download/example.pdf?sort=1#linkicon', None),
-            ('https://example.com/', '/about?sort=1#linkicon', 'https://example.com/about#linkicon'),
-            ('https://example.com/', '/about?#linkicon', 'https://example.com/about#linkicon'),
-            ('https://example.com/first/', '../about?#linkicon', 'https://example.com/about#linkicon'),
-            ('https://example.com/first/', '../about?sort=1#linkicon', 'https://example.com/about#linkicon')]
+            ('https://example.com/about/',
+             'https://anotherexample.com?sort=1#linkicon', None),
+            ('https://example.com/about/',
+             '/download/example.pdf?sort=1#linkicon', None),
+            ('https://example.com/', '/about?sort=1#linkicon',
+             'https://example.com/about#linkicon'),
+            ('https://example.com/', '/about?#linkicon',
+             'https://example.com/about#linkicon'),
+            ('https://example.com/first/', '../about?#linkicon',
+             'https://example.com/about#linkicon'),
+            ('https://example.com/first/', '../about?sort=1#linkicon',
+             'https://example.com/about#linkicon')]
 
     def test_prepare_url(self):
         for current_url, url, expected_url in self.urls:

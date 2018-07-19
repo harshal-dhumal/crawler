@@ -12,11 +12,13 @@ class Crawler(object):
 
     LINK = re.compile('<a [^>]*href=[\'|"](.*?)[\'"][^>]*?>')
 
-    FILE_CONTENTS = (".epub", ".mobi", ".docx", ".doc", ".opf", ".7z", ".ibooks", ".cbr",
-                     ".avi", ".mkv", ".mp4", ".jpg", ".jpeg", ".png", ".gif",".pdf",
-                     ".iso", ".rar", ".tar", ".tgz", ".zip", ".dmg", ".exe")
+    FILE_CONTENTS = (".epub", ".mobi", ".docx", ".doc", ".opf", ".7z",
+                     ".ibooks", ".cbr", ".avi", ".mkv", ".mp4", ".jpg",
+                     ".jpeg", ".png", ".gif", ".pdf", ".iso", ".rar", ".tar",
+                     ".tgz", ".zip", ".dmg", ".exe")
 
-    def __init__(self, domain, query=False, fragment=False, fallback_scheme='https'):
+    def __init__(self, domain, query=False, fragment=False,
+                 fallback_scheme='https'):
 
         self.fallback_scheme = fallback_scheme
         self.rooturl = self.prepare_root_url(domain)
@@ -48,7 +50,8 @@ class Crawler(object):
         Add scheme to domain if it's missing.
 
         ex. example.com => http://example.com or https://example.com
-        ex. example.com/about => http://example.com/about or https://example.com/about
+        ex. example.com/about => http://example.com/about or
+                https://example.com/about
 
         scheme is set to fallback_scheme
 
@@ -78,11 +81,13 @@ class Crawler(object):
 
     def get_first_page(self):
         """
-        Apart from crawling first page this method also sets correct (correct url scheme) domain url.
+        Apart from crawling first page this method also sets correct
+        (correct url scheme) domain url.
 
-        ex. if user provides domain with http however server redirects to https url then this also
-        updates rooturl with https scheme and therefore avoiding additional redirect caused due to
-        incorrect scheme for all other subsequent requests.
+        ex. if user provides domain with http however server redirects to
+        https url then this also updates rooturl with https scheme and
+        therefore avoiding additional redirect caused due to incorrect scheme
+        for all other subsequent requests.
         :return:
         """
         url = self.rooturl.geturl()
@@ -96,8 +101,10 @@ class Crawler(object):
         if 299 >= res.status_code >= 200:
             # check if there was redirect on first page
             # if so then update rooturl
-            # this will also set correct url scheme which will be used by subsequent requests.
-            # correct scheme will avoid additional redirect (most cases it's redirect from http to https)
+            # this will also set correct url scheme which will be used by
+            # subsequent requests.
+            # correct scheme will avoid additional redirect (most cases it's
+            # redirect from http to https)
             new_url = url
             if len(res.history) > 0:
                 new_url = res.url
@@ -144,8 +151,8 @@ class Crawler(object):
 
     def extract_urls(self, current_url, html):
         """
-        Extract urls from html page and save then for processing is url is not processed before.
-        Url will be ignored if it's already processed.
+        Extract urls from html page and save then for processing is url is not
+        processed before. Url will be ignored if it's already processed.
 
         :param current_url: page url from which urls need to be extracted.
         :param html: actual page html to crawl for urls.
@@ -169,7 +176,8 @@ class Crawler(object):
         4. converts relative url to absolute url
 
         :param current_url: Current page url
-        :param url: Url crawled from current page this url can be anything ex. relative url, external url
+        :param url: Url crawled from current page this url can be anything
+                ex. relative url, external url
         :return: Returns absolute url of crawled url as per settings.
         """
         if isinstance(current_url, str):
@@ -215,7 +223,9 @@ class Crawler(object):
             url = "{}://{}".format(current_url.scheme, url)
 
         elif not url.startswith(("http", "https")):
-            url = urljoin("{}://{}/".format(current_url.scheme, current_url.netloc), url)
+            url = urljoin("{}://{}/".format(current_url.scheme,
+                                            current_url.netloc),
+                          url)
 
         url = urlparse(url)
 
@@ -264,10 +274,12 @@ if __name__ == '__main__':
                         help="target domain (ex: http://example.com)")
 
     parser.add_argument('--query', action="store_true", default=False,
-                        help="retain query string (ex. '?a=1' will retained for url http://example.com?a=1)")
+                        help="retain query string (ex. '?a=1' will retained "
+                             "for url http://example.com?a=1)")
 
     parser.add_argument('--fragment', action="store_true", default=False,
-                        help="retain fragment (ex. '#ascsort' will retained for url http://example.com#ascsort)")
+                        help="retain fragment (ex. '#ascsort' will retained "
+                             "for url http://example.com#ascsort)")
 
     arg = vars(parser.parse_args())
 
