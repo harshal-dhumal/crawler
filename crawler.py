@@ -30,7 +30,7 @@ class Crawler(object):
     def start(self):
         """
         Calling this method starts crawling pages
-        :return:
+        :return: None
         """
 
         self.get_first_page()
@@ -52,8 +52,8 @@ class Crawler(object):
 
         scheme is set to fallback_scheme
 
-        :param domain:
-        :return:
+        :param domain: domain name provided by user with or without scheme
+        :return: scheme qualified domain.
         """
 
         rooturl = urlparse(domain)
@@ -109,12 +109,20 @@ class Crawler(object):
 
     @staticmethod
     def _get_page(url):
+        """
+        Gets response from internet
+
+        :param url: Url to fetch
+        :return: Returns response object if request was successful.
+        """
         return requests.get(url)
 
     def get_page_html(self, url):
         """
+
         :param url: Page url to fetch
-        :return: Returns result as bytes
+        :return: Returns result as string for successful response
+        else None in case of unsuccessful response or exception.
         """
         try:
             res = self._get_page(url)
@@ -126,18 +134,22 @@ class Crawler(object):
 
     def record_url(self, url):
         """
+        This prints url to stdout.
+        This method can be overwritten to save url in file.
 
-        :param url: Url to print or add in xml file
-        :return:
+        :param url: Url to print
+        :return: None
         """
         print(url)
 
     def extract_urls(self, current_url, html):
         """
+        Extract urls from html page and save then for processing is url is not processed before.
+        Url will be ignored if it's already processed.
 
         :param current_url: page url from which urls need to be extracted.
         :param html: actual page html to crawl for urls.
-        :return:
+        :return: None
         """
         if html:
             raw_links = self.LINK.findall(html)
@@ -156,9 +168,9 @@ class Crawler(object):
         3. Removes fragment or query part based on setting.
         4. converts relative url to absolute url
 
-        :param current_url:
-        :param url:
-        :return:
+        :param current_url: Current page url
+        :param url: Url crawled from current page this url can be anything ex. relative url, external url
+        :return: Returns absolute url of crawled url as per settings.
         """
         if isinstance(current_url, str):
             current_url = urlparse(current_url)
@@ -232,9 +244,10 @@ class Crawler(object):
 
     def is_external_url(self, url):
         """
-        Check is url belongs to same domain
-        :param url:
-        :return:
+        Check if url belongs to same domain.
+
+        :param url: Url to check for.
+        :return: False if url belongs to same domain else True.
         """
         if isinstance(url, str):
             url = urlparse(url)
