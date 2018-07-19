@@ -16,7 +16,7 @@ class PrepareRootUrlTest(unittest.TestCase):
                 expected_url)
 
 
-class PrepareRootUrlTest(unittest.TestCase):
+class PrepareUrlTest(unittest.TestCase):
     def setUp(self):
         self.crawler = Crawler(domain='https://example.com')
         # first url is current page url
@@ -44,7 +44,7 @@ class PrepareRootUrlTest(unittest.TestCase):
                 expected_url)
 
 
-class PrepareRootUrlWithQueryTest(unittest.TestCase):
+class PrepareUrlWithQueryTest(unittest.TestCase):
     def setUp(self):
         self.crawler = Crawler(domain='https://example.com', query=True)
         # first url is current page url
@@ -72,7 +72,7 @@ class PrepareRootUrlWithQueryTest(unittest.TestCase):
                 expected_url)
 
 
-class PrepareRootUrlWithfragmentTest(unittest.TestCase):
+class PrepareUrlWithfragmentTest(unittest.TestCase):
     def setUp(self):
         self.crawler = Crawler(domain='https://example.com', fragment=True)
         # first url is current page url
