@@ -1,118 +1,152 @@
 import re
-import argparse
-import logging
+import time
+from threading import Thread, Event, Lock
+from argparse import ArgumentParser
 from requests.utils import urlparse, urlunparse
 from requests.compat import urljoin
 import requests
+import logging
+from collections import defaultdict
 
 logging.basicConfig(filename='error.log', filemode='w')
 
+LINK = re.compile('<a [^>]*href=[\'|"](.*?)[\'"][^>]*?>')
 
-class Crawler(object):
+FILE_CONTENTS = (".epub", ".mobi", ".docx", ".doc", ".opf", ".7z",
+                 ".ibooks", ".cbr", ".avi", ".mkv", ".mp4", ".jpg",
+                 ".jpeg", ".png", ".gif", ".pdf", ".iso", ".rar", ".tar",
+                 ".tgz", ".zip", ".dmg", ".exe")
 
-    LINK = re.compile('<a [^>]*href=[\'|"](.*?)[\'"][^>]*?>')
+lock = Lock()
 
-    FILE_CONTENTS = (".epub", ".mobi", ".docx", ".doc", ".opf", ".7z",
-                     ".ibooks", ".cbr", ".avi", ".mkv", ".mp4", ".jpg",
-                     ".jpeg", ".png", ".gif", ".pdf", ".iso", ".rar", ".tar",
-                     ".tgz", ".zip", ".dmg", ".exe")
 
-    def __init__(self, domain, query=False, fragment=False,
-                 fallback_scheme='https'):
+class Sitemap(object):
+    def __init__(self, urls):
+        self.urls = urls
+        self.root = None
+        self.domain = None
 
-        self.fallback_scheme = fallback_scheme
-        self.rooturl = self.prepare_root_url(domain)
+        if len(urls):
+            url = urlparse(self.urls[0])
+            self.domain = url.scheme + '://' + url.netloc
+            self._prepare_site_map()
 
-        self.query = query
-        self.fragment = fragment
-
-        self.todo_urls = set()
-        self.done_urls = set()
-
-    def start(self):
-        """
-        Calling this method starts crawling pages
-        :return: None
+    @staticmethod
+    def _get_path_node():
         """
 
-        self.get_first_page()
-
-        while len(self.todo_urls):
-            url = self.todo_urls.pop()
-            res = self.get_page_html(url)
-            self.done_urls.add(url)
-            if res:
-                self.extract_urls(url, res.text)
-            self.record_url(url)
-
-    def prepare_root_url(self, domain):
+        :return: defaultdict with defaultdict as default value
         """
-        Add scheme to domain if it's missing.
+        return defaultdict(defaultdict)
 
-        ex. example.com => http://example.com or https://example.com
-        ex. example.com/about => http://example.com/about or
-                https://example.com/about
-
-        scheme is set to fallback_scheme
-
-        :param domain: domain name provided by user with or without scheme
-        :return: scheme qualified domain.
+    def _prepare_site_map(self):
         """
-
-        rooturl = urlparse(domain)
-
-        if rooturl.scheme == "":
-            l_url = list(rooturl)
-            if rooturl.netloc == "":
-                if rooturl.path == "":
-                    raise ValueError("Invalid domain {}".format(domain))
-
-                domain = domain.split('/')
-                l_url[1] = domain[0]
-                if len(domain) > 1:
-                    l_url[2] = "/".join(domain[1:])
-                else:
-                    l_url[2] = ""
-
-            l_url[0] = self.fallback_scheme
-            return urlparse(urlunparse(l_url))
-        else:
-            return rooturl
-
-    def get_first_page(self):
-        """
-        Apart from crawling first page this method also sets correct
-        (correct url scheme) domain url.
-
-        ex. if user provides domain with http however server redirects to
-        https url then this also updates rooturl with https scheme and
-        therefore avoiding additional redirect caused due to incorrect scheme
-        for all other subsequent requests.
+        This generates site map tree and sets self.root to point to it.
         :return:
         """
-        url = self.rooturl.geturl()
-        try:
-            res = self._get_page(url)
-        except Exception as e:
-            logging.exception("domain error {}".format(url))
-            return
+        self.root = self._get_path_node()
 
-        self.done_urls.add(url)
-        if 299 >= res.status_code >= 200:
-            # check if there was redirect on first page
-            # if so then update rooturl
-            # this will also set correct url scheme which will be used by
-            # subsequent requests.
-            # correct scheme will avoid additional redirect (most cases it's
-            # redirect from http to https)
-            new_url = url
-            if len(res.history) > 0:
-                new_url = res.url
-                self.rooturl = urlparse(new_url)
-                self.done_urls.add(new_url)
+        for url in self.urls:
 
-            self.extract_urls(new_url, res.text)
-            self.record_url(new_url)
+            inner_root = self.root
+            url = urlparse(url)
+            paths = url.path.split('/')
+
+            if paths[0] == '':
+                paths = paths[1:]
+
+            for path in paths:
+                node = inner_root.get(path, None)
+                if node:
+                    inner_root = node
+                    continue
+                node = self._get_path_node()
+                inner_root[path] = node
+                inner_root = node
+
+    def print(self):
+        """
+        This prints site maps urls as a list
+        :return:
+        """
+        print('\nUrls for domain', self.domain, end='\n\n')
+        if self.urls:
+            for url in self.urls:
+                print(url)
+
+    def print_tree(self):
+        """
+        This prints site maps urls as a tree
+        :return:
+        """
+        print('\nSitemap for domain', self.domain, end='\n\n')
+
+        def print_inner(_path, _node, depth=0):
+            print(_path, end='')
+            depth += len(_path) + 1
+            node_len = len(_node)
+            if node_len == 0:
+                print('')
+                return
+            elif node_len == 1:
+                print('/', end='')
+                p = list(_node.keys())[0]
+                n = list(_node.values())[0]
+                print_inner(p, n, depth=depth)
+            else:
+                print('/')
+                for p, n in _node.items():
+                    print(' ' * depth, end='')
+                    print_inner(p, n, depth=depth)
+
+        if self.root:
+            for path, node in self.root.items():
+                print_inner(path, node)
+
+
+class PageCrawler(Thread):
+    def __init__(self, root_url, todo_urls, crawled_urls, urls_found,
+                 stop_crawler_event, query=False, fragment=False):
+        Thread.__init__(self)
+        self.root_url = root_url
+        self.todo_urls = todo_urls
+        self.crawled_urls = crawled_urls
+        self.urls_found = urls_found
+        self.stop_crawler_event = stop_crawler_event
+        self.query = query
+        self.fragment = fragment
+        self._waiting = False
+
+    @property
+    def is_waiting(self):
+        """
+        Returns if thread is waiting for url to crawl.
+        :return:
+        """
+        return self._waiting
+
+    def run(self):
+        """
+        This method loop until stop_crawler_event is set.
+        Get url from todo urls => download page => extract urls and repeat.
+        :return:
+        """
+        while not self.stop_crawler_event.is_set():
+            try:
+                with lock:
+                    url = self.todo_urls.pop()
+                    self._waiting = False
+            except KeyError:
+                self._waiting = True
+            else:
+                if url in self.crawled_urls:
+                    continue
+
+                res = self.get_page_html(url)
+
+                self.crawled_urls.add(url)
+                if res:
+                    self.extract_urls(url, res.text)
 
     @staticmethod
     def _get_page(url):
@@ -136,36 +170,8 @@ class Crawler(object):
             if 299 >= res.status_code >= 200:
                 return res
             return None
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             return None
-
-    def record_url(self, url):
-        """
-        This prints url to stdout.
-        This method can be overwritten to save url in file.
-
-        :param url: Url to print
-        :return: None
-        """
-        print(url)
-
-    def extract_urls(self, current_url, html):
-        """
-        Extract urls from html page and save then for processing is url is not
-        processed before. Url will be ignored if it's already processed.
-
-        :param current_url: page url from which urls need to be extracted.
-        :param html: actual page html to crawl for urls.
-        :return: None
-        """
-        if html:
-            raw_links = self.LINK.findall(html)
-            for raw_link in raw_links:
-                raw_link = raw_link
-                link = self.prepare_url(current_url, raw_link)
-
-                if link and link not in self.done_urls:
-                    self.todo_urls.add(link)
 
     def prepare_url(self, current_url, url):
         """
@@ -229,7 +235,7 @@ class Crawler(object):
 
         url = urlparse(url)
 
-        if url.path.endswith(self.FILE_CONTENTS):
+        if url.path.endswith(FILE_CONTENTS):
             return None
 
         if self.is_external_url(url):
@@ -262,16 +268,213 @@ class Crawler(object):
         if isinstance(url, str):
             url = urlparse(url)
 
-        if self.rooturl.netloc == url.netloc:
+        if self.root_url.netloc == url.netloc:
             return False
         return True
 
+    def extract_urls(self, current_url, html):
+        """
+        Extract urls from html page and save then for processing if url is not
+        processed before. Url will be ignored if it's already processed.
+        This will also print current status of found, visited, yet to visit urls
+
+        :param current_url: page url from which urls need to be extracted.
+        :param html: actual page html to crawl for urls.
+        :return: None
+        """
+        if html:
+            raw_links = LINK.findall(html)
+            for raw_link in raw_links:
+                raw_link = raw_link
+                link = self.prepare_url(current_url, raw_link)
+
+                if link and link not in self.crawled_urls:
+                    with lock:
+                        self.todo_urls.add(link)
+                        self.urls_found.add(link)
+
+            print('urls_found: {}, urls visited: {}, urls to visit: {}'.format(
+                len(self.urls_found), len(self.crawled_urls),
+                len(self.todo_urls)))
+
+
+class Crawler(object):
+    def __init__(self, domain, limit=1000, jobs=16, query=False,
+                 fragment=False, fallback_scheme='http'):
+
+        self.limit = limit
+
+        self.query = query
+
+        self.fragment = fragment
+
+        self.jobs = jobs
+
+        self.fallback_scheme = fallback_scheme
+
+        self.root_url = self.prepare_root_url(domain)
+
+        # url which are not visited yet
+        self.todo_urls = set()
+
+        # visited urls
+        self.crawled_urls = set()
+
+        # urls found for site map
+        self._urls_found = set()
+
+        self.crawler_jobs = []
+
+        self.stop_crawler_event = Event()
+
+    @property
+    def urls_found(self):
+        """
+        This returns list of found urls.
+        :return: list of urls
+        """
+        if self.limit < 0:
+            return list(self._urls_found)
+        else:
+            return list(self._urls_found)[:self.limit]
+
+    def start(self):
+        """
+        This method will launch crawler threads.
+        :return:
+        """
+        self.get_real_domain()
+
+        for i in range(0, self.jobs):
+            t = PageCrawler(self.root_url,
+                            self.todo_urls,
+                            self.crawled_urls,
+                            self._urls_found,
+                            self.stop_crawler_event,
+                            self.query,
+                            self.fragment
+                            )
+
+            self.crawler_jobs.append(t)
+            t.start()
+
+        while 1:
+            time.sleep(0.1)
+            if self.is_finished():
+                self.stop_crawler_event.set()
+                break
+
+        for job in self.crawler_jobs:
+            job.join()
+
+    def is_finished(self):
+        """
+        This will return true if site map completion condition is reached.
+        :return:
+        """
+
+        # If all threads are dead then tell main thread to finish the crawling
+        # process.
+        if all([not job.is_alive() for job in self.crawler_jobs]):
+            return True
+
+        with lock:
+            # limit is negative (i.e don't stop until all pages are crawled)
+            # and todo_url list reached to 0 and all threads are waiting for
+            # urls
+            if self.limit < 0 and len(self.todo_urls) == 0 and \
+                    all([job.is_wating for job in self.crawler_jobs]):
+                return True
+
+            # limit is positive (i.e stop if urls_found equals limit)
+            # or todo_url list reached to 0 and all threads are waiting for
+            # urls.
+            elif len(self._urls_found) >= self.limit or (
+                        len(self.todo_urls) == 0 and
+                        all([job.is_waiting for job in self.crawler_jobs])):
+                return True
+
+        return False
+
+    def prepare_root_url(self, domain):
+        """
+        Add scheme to domain if it's missing.
+
+        ex. example.com => http://example.com or https://example.com
+        ex. example.com/about => http://example.com/about or
+                https://example.com/about
+
+        scheme is set to fallback_scheme
+
+        :param domain: domain name provided by user with or without scheme
+        :return: scheme qualified domain.
+        """
+
+        rooturl = urlparse(domain)
+
+        if rooturl.scheme == "":
+            l_url = list(rooturl)
+            if rooturl.netloc == "":
+                if rooturl.path == "":
+                    raise ValueError("Invalid domain {}".format(domain))
+
+                domain = domain.split('/')
+                l_url[1] = domain[0]
+                if len(domain) > 1:
+                    l_url[2] = "/".join(domain[1:])
+                else:
+                    l_url[2] = ""
+
+            l_url[0] = self.fallback_scheme
+            return urlparse(urlunparse(l_url))
+        else:
+            return rooturl
+
+    def get_real_domain(self):
+        """
+        This method tries to get exact domain url.
+
+        ex. if user provides domain with http however server redirects to
+        https url then this also updates root_url with https scheme and
+        therefore avoiding additional redirect caused due to incorrect scheme
+        for all other subsequent requests.
+        :return:
+        """
+        url = self.root_url.geturl()
+        try:
+            res = requests.request('HEAD', url)
+        except requests.exceptions.RequestException as e:
+            logging.exception("domain error {}".format(url))
+            return
+
+        if 299 >= res.status_code >= 200:
+            # check if there was redirect on first page
+            # if so then update root_url
+            # this will also set correct url scheme which will be used by
+            # subsequent requests.
+            # correct scheme will avoid additional redirect (most cases it's
+            # redirect from http to https)
+            if len(res.history) > 0:
+                new_url = res.url
+                self.root_url = urlparse(res.url)
+                self._urls_found.add(self.root_url.geturl())
+                with lock:
+                    self.todo_urls.add(new_url)
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Sitemap crawler')
+
+    parser = ArgumentParser(description='Sitemap crawler')
 
     parser.add_argument('--domain', required=True, action="store", default="",
                         help="target domain (ex: http://example.com)")
+
+    parser.add_argument('--limit', action="store", default=1000, type=int,
+                        help="limit the no. of urls in sitemap use -1 to crawl "
+                             "all pages of domain")
+
+    parser.add_argument('--jobs', required=False, action="store", type=int,
+                        default=16, help="number of simultaneous jobs")
 
     parser.add_argument('--query', action="store_true", default=False,
                         help="retain query string (ex. '?a=1' will retained "
@@ -281,7 +484,21 @@ if __name__ == '__main__':
                         help="retain fragment (ex. '#ascsort' will retained "
                              "for url http://example.com#ascsort)")
 
-    arg = vars(parser.parse_args())
+    parser.add_argument('--plain', required=False, action="store_true",
+                        default=False, help="prints result as plain urls"
+                                            "instead of tree")
 
-    cwrl = Crawler(**arg)
+    args = vars(parser.parse_args())
+
+    plain = args.pop('plain')
+
+    cwrl = Crawler(**args)
+
     cwrl.start()
+
+    s = Sitemap(cwrl.urls_found)
+
+    if plain:
+        s.print()
+    else:
+        s.print_tree()
