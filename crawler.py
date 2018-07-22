@@ -12,6 +12,12 @@ from bs4 import BeautifulSoup
 
 IS_PY2 = sys.version_info < (3, 0)
 
+if IS_PY2:
+    from robotparser import RobotFileParser
+else:
+    from urllib.robotparser import RobotFileParser
+
+
 logging.basicConfig(filename='error.log', filemode='w')
 
 FILE_CONTENTS = (".epub", ".mobi", ".docx", ".doc", ".opf", ".7z",
@@ -108,7 +114,7 @@ class Sitemap(object):
 
 class PageCrawler(Thread):
     def __init__(self, root_url, todo_urls, crawled_urls, urls_found,
-                 stop_crawler_event, query=False, fragment=False):
+                 stop_crawler_event, query=False, fragment=False, robot_parser=None):
         Thread.__init__(self)
         self.root_url = root_url
         self.todo_urls = todo_urls
@@ -117,6 +123,7 @@ class PageCrawler(Thread):
         self.stop_crawler_event = stop_crawler_event
         self.query = query
         self.fragment = fragment
+        self.robot_parser = robot_parser
         self._waiting = False
 
     @property
@@ -295,6 +302,9 @@ class PageCrawler(Thread):
                 raw_link = a['href']
                 link = self.prepare_url(current_url, raw_link)
 
+                if not self.can_fetch(link):
+                    continue
+
                 if link and link not in self.crawled_urls:
                     with lock:
                         self.todo_urls.add(link)
@@ -303,6 +313,17 @@ class PageCrawler(Thread):
             print('urls found: {}, urls visited: {}, urls to visit: {}'.format(
                 len(self.urls_found), len(self.crawled_urls),
                 len(self.todo_urls)))
+
+    def can_fetch(self, link):
+        if self.robot_parser:
+            try:
+                if self.robot_parser.can_fetch("*", link):
+                    return True
+                else:
+                    return False
+            except:
+                return True
+        return True
 
 
 class Crawler(object):
@@ -334,6 +355,8 @@ class Crawler(object):
 
         self.stop_crawler_event = Event()
 
+        self.rp = None
+
     @property
     def urls_found(self):
         """
@@ -351,7 +374,7 @@ class Crawler(object):
         :return:
         """
         self.get_real_domain()
-
+        self.get_robot_txt()
         for i in range(0, self.jobs):
             t = PageCrawler(self.root_url,
                             self.todo_urls,
@@ -359,7 +382,8 @@ class Crawler(object):
                             self._urls_found,
                             self.stop_crawler_event,
                             self.query,
-                            self.fragment
+                            self.fragment,
+                            self.rp
                             )
 
             self.crawler_jobs.append(t)
@@ -468,6 +492,13 @@ class Crawler(object):
                 with lock:
                     self.todo_urls.add(new_url)
 
+    def get_robot_txt(self):
+        robots_url = urljoin(
+            '{}://{}'.format(self.root_url.scheme, self.root_url.netloc),
+            "robots.txt")
+        self.rp = RobotFileParser()
+        self.rp.set_url(robots_url)
+        self.rp.read()
 
 if __name__ == '__main__':
 
