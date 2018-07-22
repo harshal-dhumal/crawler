@@ -1,5 +1,7 @@
 import unittest
-from crawler import Crawler
+from threading import Event
+from requests.utils import urlparse
+from crawler import Crawler, PageCrawler
 
 
 class PrepareRootUrlTest(unittest.TestCase):
@@ -18,7 +20,10 @@ class PrepareRootUrlTest(unittest.TestCase):
 
 class PrepareUrlTest(unittest.TestCase):
     def setUp(self):
-        self.crawler = Crawler(domain='https://example.com')
+        self.crawler = PageCrawler(root_url=urlparse('https://example.com'),
+                                   todo_urls=set(), crawled_urls=set(),
+                                   urls_found=set(), stop_crawler_event=Event()
+                                   )
         # first url is current page url
         # second url is crawled url in current page
         # third url is absolute url which is expected result
@@ -46,7 +51,10 @@ class PrepareUrlTest(unittest.TestCase):
 
 class PrepareUrlWithQueryTest(unittest.TestCase):
     def setUp(self):
-        self.crawler = Crawler(domain='https://example.com', query=True)
+        self.crawler = PageCrawler(
+            root_url=urlparse('https://example.com'),
+            todo_urls=set(), crawled_urls=set(), urls_found=set(),
+            stop_crawler_event=Event(), query=True)
         # first url is current page url
         # second url is crawled url in current page
         # third url is absolute url which is expected result
@@ -72,9 +80,12 @@ class PrepareUrlWithQueryTest(unittest.TestCase):
                 expected_url)
 
 
-class PrepareUrlWithfragmentTest(unittest.TestCase):
+class PrepareUrlWithFragmentTest(unittest.TestCase):
     def setUp(self):
-        self.crawler = Crawler(domain='https://example.com', fragment=True)
+        self.crawler = PageCrawler(
+            root_url=urlparse('https://example.com'),
+            todo_urls=set(), crawled_urls=set(), urls_found=set(),
+            stop_crawler_event=Event(), fragment=True)
         # first url is current page url
         # second url is crawled url in current page
         # third url is absolute url which is expected result
@@ -102,7 +113,9 @@ class PrepareUrlWithfragmentTest(unittest.TestCase):
 
 class IsExternalUrlTest(unittest.TestCase):
     def setUp(self):
-        self.crawler = Crawler(domain='https://example.com')
+        self.crawler = PageCrawler(
+            root_url=urlparse('https://example.com'), todo_urls=set(),
+            crawled_urls=set(), urls_found=set(), stop_crawler_event=Event())
         # first is crawled url
         # second is_external flag
 

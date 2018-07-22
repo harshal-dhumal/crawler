@@ -12,8 +12,6 @@ from bs4 import BeautifulSoup
 
 logging.basicConfig(filename='error.log', filemode='w')
 
-LINK = re.compile('<a [^>]*href=[\'|"](.*?)[\'"][^>]*?>')
-
 FILE_CONTENTS = (".epub", ".mobi", ".docx", ".doc", ".opf", ".7z",
                  ".ibooks", ".cbr", ".avi", ".mkv", ".mp4", ".jpg",
                  ".jpeg", ".png", ".gif", ".pdf", ".iso", ".rar", ".tar",
@@ -278,7 +276,8 @@ class PageCrawler(Thread):
         """
         Extract urls from html page and save then for processing if url is not
         processed before. Url will be ignored if it's already processed.
-        This will also print current status of found, visited, yet to visit urls
+        This will also print current status of found, visited, yet to visit
+        urls
 
         :param current_url: page url from which urls need to be extracted.
         :param html: actual page html to crawl for urls.
@@ -472,8 +471,8 @@ if __name__ == '__main__':
                         help="target domain (ex: http://example.com)")
 
     parser.add_argument('--limit', action="store", default=1000, type=int,
-                        help="limit the no. of urls in sitemap use -1 to crawl "
-                             "all pages of domain")
+                        help="limit the no. of urls in sitemap use -1 to "
+                             "crawl all pages of domain")
 
     parser.add_argument('--jobs', required=False, action="store", type=int,
                         default=16, help="number of simultaneous jobs")
