@@ -1,4 +1,5 @@
-import re
+from __future__ import print_function
+import sys
 import time
 from threading import Thread, Event, Lock
 from argparse import ArgumentParser
@@ -9,6 +10,7 @@ import logging
 from collections import defaultdict
 from bs4 import BeautifulSoup
 
+IS_PY2 = sys.version_info < (3, 0)
 
 logging.basicConfig(filename='error.log', filemode='w')
 
@@ -64,7 +66,7 @@ class Sitemap(object):
                 inner_root[path] = node
                 inner_root = node
 
-    def print(self):
+    def print_plain(self):
         """
         This prints site maps urls as a list
         :return:
@@ -186,8 +188,12 @@ class PageCrawler(Thread):
                 ex. relative url, external url
         :return: Returns absolute url of crawled url as per settings.
         """
-        if isinstance(current_url, str):
-            current_url = urlparse(current_url)
+        if IS_PY2:
+            if isinstance(current_url, basestring):
+                current_url = urlparse(current_url)
+        else:
+            if isinstance(current_url, str):
+                current_url = urlparse(current_url)
 
         if url in ("", "/", "./"):
             return None
@@ -500,6 +506,6 @@ if __name__ == '__main__':
     s = Sitemap(cwrl.urls_found)
 
     if plain:
-        s.print()
+        s.print_plain()
     else:
         s.print_tree()
