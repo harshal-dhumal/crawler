@@ -7,6 +7,8 @@ from requests.compat import urljoin
 import requests
 import logging
 from collections import defaultdict
+from bs4 import BeautifulSoup
+
 
 logging.basicConfig(filename='error.log', filemode='w')
 
@@ -283,9 +285,9 @@ class PageCrawler(Thread):
         :return: None
         """
         if html:
-            raw_links = LINK.findall(html)
-            for raw_link in raw_links:
-                raw_link = raw_link
+            soup = BeautifulSoup(html, "html.parser")
+            for a in soup.find_all('a', href=True):
+                raw_link = a['href']
                 link = self.prepare_url(current_url, raw_link)
 
                 if link and link not in self.crawled_urls:
@@ -293,7 +295,7 @@ class PageCrawler(Thread):
                         self.todo_urls.add(link)
                         self.urls_found.add(link)
 
-            print('urls_found: {}, urls visited: {}, urls to visit: {}'.format(
+            print('urls found: {}, urls visited: {}, urls to visit: {}'.format(
                 len(self.urls_found), len(self.crawled_urls),
                 len(self.todo_urls)))
 
