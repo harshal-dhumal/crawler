@@ -471,7 +471,7 @@ class Crawler(object):
         for all other subsequent requests.
         :return:
         """
-        url = self.root_url.geturl()
+        url = new_url = self.root_url.geturl()
         try:
             res = requests.request('HEAD', url)
         except requests.exceptions.RequestException as e:
@@ -488,9 +488,9 @@ class Crawler(object):
             if len(res.history) > 0:
                 new_url = res.url
                 self.root_url = urlparse(res.url)
-                self._urls_found.add(self.root_url.geturl())
-                with lock:
-                    self.todo_urls.add(new_url)
+
+        self._urls_found.add(new_url)
+        self.todo_urls.add(new_url)
 
     def get_robot_txt(self):
         robots_url = urljoin(
